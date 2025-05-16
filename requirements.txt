@@ -6,3 +6,5 @@ pdf2image
 Pillow
 google-generativeai
 google-auth
+python-docx
+PyMuPDF

@@ -1,0 +1,10 @@
+streamlit
+python-dotenv
+pandas
+numpy
+pdf2image
+Pillow
+google-generative-ai
+google-auth
+base64
+os

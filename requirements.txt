@@ -4,7 +4,5 @@ pandas
 numpy
 pdf2image
 Pillow
-google-generative-ai
+google-generativeai
 google-auth
-base64
-os

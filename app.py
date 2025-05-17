@@ -1,120 +1,72 @@
-
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from pdf2image import convert_from_bytes
+import fitz  # PyMuPDF for PDF text extraction
 import google.generativeai as genai
-import base64
-import io
 
-# Load environment variables
+# Load API key
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 
+# Initialize Gemini model (text-only)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Function to extract plain text from PDF using fitz
+def extract_text_from_pdf(uploaded_file):
+    try:
+        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+    except Exception as e:
+        return f"⚠️ Error reading PDF: {e}"
+
 # Function to get Gemini response
-def get_gemini_response(input, pdf_content, prompt):
-    """
-    Sends the input (job description), PDF content (resume), and prompt to the Gemini model.
-    Returns the model's response.
-    """
-    model = genai.GenerativeModel('gemini-1.5-flash')  # Use the updated model
-    response = model.generate_content([input, pdf_content, prompt])  # Generate response
-    return response.text  # Return the response text
+def get_gemini_response(job_desc, resume_text, prompt):
+    try:
+        response = model.generate_content([prompt, job_desc, resume_text])
+        return response.text
+    except Exception as e:
+        return f"⚠️ Error in Gemini response: {e}"
 
-# # Function to process PDF
-# def input_pdf_setup(uploaded_file):
-#     if uploaded_file is not None:
-#         # Specify the Poppler path
-#         poppler_path = r"C:\Users\skshi\Downloads\Release-24.08.0-0\poppler-24.08.0\Library\bin"  # Update this path if needed
-        
-#         # Convert PDF to image
-#         images = convert_from_bytes(uploaded_file.read(), poppler_path=poppler_path)
-        
-#         # Take the first page of the PDF
-#         first_page = images[0]
-        
-#         # Convert the image to bytes
-#         img_byte_arr = io.BytesIO()
-#         first_page.save(img_byte_arr, format='JPEG')
-#         img_byte_arr = img_byte_arr.getvalue()
-        
-#         # Encode the image in Base64
-#         pdf_part = {
-#             "mime_type": "image/jpeg",  # Specify the MIME type
-#             "data": base64.b64encode(img_byte_arr).decode()  # Base64-encoded image data
-#         }
-#         return pdf_part  # Return a single dictionary
-#     else:
-#         raise FileNotFoundError("No file uploaded")
-import fitz  # PyMuPDF
-import docx
+# Streamlit UI setup
+st.set_page_config(page_title="ATS Resume Analyzer",layout="wide")
+st.title("🧠 ATS Resume Analyzer (Gemini + Streamlit)")
 
-def input_pdf_setup(uploaded_file):
-    if uploaded_file is not None:
-        file_type = uploaded_file.name.split(".")[-1].lower()
+# Inputs
+job_description = st.text_area("📄 Paste Job Description")
+uploaded_file = st.file_uploader("📁 Upload Resume (PDF only)", type=["pdf"])
 
-        if file_type == "pdf":
-            with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
-                text = ""
-                for page in doc:
-                    text += page.get_text()
-
-        elif file_type == "docx":
-            doc = docx.Document(uploaded_file)
-            text = "\n".join([para.text for para in doc.paragraphs])
-
-        else:
-            raise ValueError("Unsupported file type. Please upload a PDF or DOCX file.")
-
-        pdf_part = {
-            "mime_type": "text/plain",
-            "data": text
-        }
-        return pdf_part
-
-    else:
-        raise FileNotFoundError("No file uploaded")
-
-
-# Streamlit App
-st.set_page_config(page_title="ATS Resume Expert")
-st.header("ATS Tracking System")
-
-# Input Fields
-input_text = st.text_area("Job Description: ", key="input")
-# uploaded_file = st.file_uploader("Upload your resume (PDF)...", type=["pdf"])
-uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)...", type=["pdf", "docx"])
-
-
-# Submit Buttons
-submit1 = st.button("Tell Me About the Resume")
-submit2 = st.button("Percentage Match")
-
-# Prompts for Gemini Pro Vision
+# Gemini prompts
 input_prompt1 = """
-You are an experienced technical human resource manager. Your task is to review the provided resume against the job description for roles in data science, full-stack development, and data engineering,cyber Security Jobs,software tester,Quality Assurence. Please share your professional evaluation on whether the candidate profile aligns with the job requirements, highlighting strengths and weaknesses.
+You are an experienced technical human resource manager. Your task is to review the provided resume against the job description for roles in data science, full-stack development, data engineering, cybersecurity, software testing, or quality assurance. Please share a professional evaluation on whether the candidate profile aligns with the job requirements, highlighting strengths and weaknesses.
 """
 
 input_prompt2 = """
-You are a skilled ATS system scanner with a deep understanding of data science and ATS functionality. Your task is to evaluate the resume against the provided job description and provide a percentage match. Highlight missing keywords and provide final thoughts on the resume's suitability.
+You are a skilled ATS system scanner with deep knowledge of resume screening for tech jobs. Evaluate the resume against the job description and provide a percentage match. Mention missing keywords, and suggest improvements.
 """
 
-# Handle Button Clicks
-if submit1:
-    if uploaded_file is not None:
-        pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(input_prompt1, pdf_content, input_text)
-        st.subheader("Resume Analysis:")
-        st.write(response)
-    else:
-        st.write("Please upload a resume in PDF format.")
+# Action Buttons
+col1, col2 = st.columns(2)
+with col1:
+    analyze = st.button("📊 Analyze Resume")
+with col2:
+    match = st.button("✅ Percentage Match")
 
-elif submit2:
-    if uploaded_file is not None:
-        pdf_content = input_pdf_setup(uploaded_file)
-        response = get_gemini_response(input_prompt2, pdf_content, input_text)
-        st.subheader("Percentage Match:")
+# Resume Processing Logic
+if uploaded_file:
+    resume_text = extract_text_from_pdf(uploaded_file)
+
+    if analyze:
+        response = get_gemini_response(job_description, resume_text, input_prompt1)
+        st.subheader("📋 Resume Analysis")
         st.write(response)
-    else:
-        st.write("Please upload a resume in PDF format.")
+
+    elif match:
+        response = get_gemini_response(job_description, resume_text, input_prompt2)
+        st.subheader("📈 Percentage Match & Feedback")
+        st.write(response)
+else:
+    st.info("Please upload a PDF resume to begin.")

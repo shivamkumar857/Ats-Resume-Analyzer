@@ -10,7 +10,7 @@ api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 
 # Initialize Gemini model (text-only)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-pro")
 
 # Function to extract plain text from PDF using fitz
 def extract_text_from_pdf(uploaded_file):
